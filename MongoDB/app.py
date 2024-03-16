@@ -1,6 +1,12 @@
 from models import Author, Quote
+from redis_lru import RedisLRU
 
+import redis
 
+client = redis.StrictRedis(host="localhost", port=6379, password=None)
+cache = RedisLRU(client)
+
+@cache
 def search_by_author(author: str):
     authors = Author.objects(fullname__iregex=author)
     result = {}
@@ -10,12 +16,14 @@ def search_by_author(author: str):
     return result
 
 
+@cache
 def search_by_tag(tag: str):
     quotes = Quote.objects(tags__iregex=tag)
     result = [q.quote for q in quotes]
     return result
 
 
+@cache
 def search_by_tags(tags):
     tags_list = tags.split(',')
     quotes = Quote.objects(tags__in=tags_list)
