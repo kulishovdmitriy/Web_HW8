@@ -2,7 +2,7 @@ from mongoengine import connect, Document, StringField, ReferenceField, ListFiel
 
 connect(
     db="my-mongoDB",
-    host="mongodb+srv://djo-developer:52628271@my-mongodb.qlte4g6.mongodb.net/?"
+    host="mongodb+srv://<user>:<password>@my-mongodb.qlte4g6.mongodb.net/?"
          "retryWrites=true&w=majority&appName=my-mongoDB"
     )
 

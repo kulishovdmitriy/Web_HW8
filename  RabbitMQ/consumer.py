@@ -1,38 +1,35 @@
 import pika
-from time import sleep
 from mongoengine import connect
 from models import Contact
 
-# Функція для імітації відправлення email
-def send_email(contact_id):
-    # Зчитуємо контакт з MongoDB за його ObjectId
-    contact = Contact.objects.get(id=contact_id)
-    print(f"Sending email to {contact.email}...")
 
-    # Імітація надсилання email
+def main():
+    credentials = pika.PlainCredentials('guest', 'guest')
+    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', port=5672, credentials=credentials))
+    channel = connection.channel()
 
-    # Позначаємо контакт як відправлений
-    contact.email_sent = True
-    contact.save()
-    print("Email sent successfully!")
+    channel.queue_declare(queue='contacts')
 
-# З'єднання з RabbitMQ
-connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-channel = connection.channel()
+    connect(
+        db="my-mongoDB",
+        host="mongodb+srv://<user>:<password>@my-mongodb.qlte4g6.mongodb.net/?"
+             "retryWrites=true&w=majority&appName=my-mongoDB"
+    )
 
-# Оголошення черги
-channel.queue_declare(queue='contacts')
+    def callback(ch, method, properties, body):
+        contact_id = body.decode()
+        contact = Contact.objects.get(id=contact_id)
+        print(f" [x] Received message for contact: {contact_id}")
+        contact.email_sent = True
+        contact.save()
+        ch.basic_ack(delivery_tag=method.delivery_tag)
 
-# Підключення до MongoDB
-connect('contacts_database')
+    channel.basic_qos(prefetch_count=1)
+    channel.basic_consume(queue='contacts', on_message_callback=callback)
 
-# Функція обробки повідомлення з черги
-def callback(ch, method, properties, body):
-    print(f" [x] Received {body.decode()}")
-    send_email(body.decode())
+    print(' [*] Waiting for messages. To exit press CTRL+C')
+    channel.start_consuming()
 
-# Встановлюємо callback-функцію для обробки повідомлень
-channel.basic_consume(queue='contacts', on_message_callback=callback, auto_ack=True)
 
-print(' [*] Waiting for messages. To exit press CTRL+C')
-channel.start_consuming()
+if __name__ == '__main__':
+    main()

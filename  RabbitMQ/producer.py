@@ -3,27 +3,33 @@ from faker import Faker
 from mongoengine import connect
 from models import Contact
 
-# З'єднання з RabbitMQ
-connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+credentials = pika.PlainCredentials('guest', 'guest')
+connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', port=5672, credentials=credentials))
 channel = connection.channel()
 
-# Оголошення черги
 channel.queue_declare(queue='contacts')
 
-# Підключення до MongoDB
-connect('contacts_database')
+connect(
+    db="my-mongoDB",
+    host="mongodb+srv://<user>:<password>@my-mongodb.qlte4g6.mongodb.net/?"
+         "retryWrites=true&w=majority&appName=my-mongoDB"
+    )
 
-# Генерування та зберігання фейкових контактів
 fake = Faker()
-for _ in range(10):
-    name = fake.name()
-    email = fake.email()
-    contact = Contact(name=name, email=email)
-    contact.save()
 
-    # Відправлення повідомлення з ObjectId контакту в чергу
-    channel.basic_publish(exchange='', routing_key='contacts', body=str(contact.id))
-    print(f" [x] Sent {contact.id}")
 
-# Закриття з'єднання з RabbitMQ
-connection.close()
+def create_contact(num):
+    for _ in range(num):
+        name = fake.name()
+        email = fake.email()
+        contact = Contact(fullname=name, email=email)
+        contact.save()
+
+        channel.basic_publish(exchange='', routing_key='contacts', body=str(contact.id))
+        print(f" [x] Sent {contact.id}")
+
+    connection.close()
+
+
+if __name__ == '__main__':
+    create_contact(50)
